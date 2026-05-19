@@ -1,0 +1,55 @@
+name: Build Linux
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build \
+            qtbase5-dev \
+            qttools5-dev-tools \
+            libqt5opengl5-dev \
+            libgl-dev \
+            libusb-1.0-0-dev \
+            libfftw3-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Rename binary
+        run: cp build/openhantek/OpenHantek build/openhantek/OpenHantek-linux-x86_64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenHantek-linux-x86_64
+          path: build/openhantek/OpenHantek-linux-x86_64
+          retention-days: 30
+
+      - name: Publish to latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes 2>/dev/null || true
+          gh release create latest \
+            --title "Latest Linux build ($(git rev-parse --short HEAD))" \
+            --notes "Automatically built from commit $(git rev-parse HEAD)" \
+            --prerelease \
+            build/openhantek/OpenHantek-linux-x86_64
