@@ -1,6 +1,6 @@
 # OpenHantek [![Build Status](https://travis-ci.org/OpenHantek/openhantek.svg?branch=master)](https://travis-ci.org/OpenHantek/openhantek) [![Build status](https://ci.appveyor.com/api/projects/status/github/openhantek/openhantek?branch=master&svg=true)](https://ci.appveyor.com/project/openhantek/openhantek/branch/master) [![Stability: Unsupported](https://masterminds.github.io/stability/unsupported.svg)](https://masterminds.github.io/stability/unsupported.html)
 
-OpenHantek is a free software for Hantek and compatible (Voltcraft/Darkwire/Protek/Acetech) USB digital signal oscilloscopes.
+OpenHantek is a free software for Hantek and compatible (Voltcraft/Darkwire/Protek/Acetech) USB digital signal oscilloscopes, and the SainSmart DDS140.
 
 <table><tr>
     <td> <img alt="Image of main window on linux" width="100%" src="docs/images/screenshot_mainwindow.png"> </td>
@@ -8,7 +8,7 @@ OpenHantek is a free software for Hantek and compatible (Voltcraft/Darkwire/Prot
 </tr></table>
 
 * Supported operating systems: Linux, MacOSX, Windows¹, Android
-* Supported devices: DSO2xxx Series, DSO52xx Series, 6022BE/BL
+* Supported devices: DSO2xxx Series, DSO52xx Series, 6022BE/BL, SainSmart DDS140
 
 ## Features
 
@@ -47,6 +47,18 @@ USB access for the device is required:
 * As seen on the [Microsoft Windows build instructions](docs/build.md#windows) page, you need a
 special driver for Windows systems.
 * On Linux, you need to copy the file `firmware/60-hantek.rules` to `/lib/udev/rules.d/` and replug your device.
+
+### SainSmart DDS140
+
+The DDS140 (USB VID `0x8312` / PID `0x8312`) is supported natively — no firmware upload is required as the device firmware is pre-loaded. On Linux, add a udev rule to grant non-root access:
+
+```
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="8312", ATTR{idProduct}=="8312", MODE="0666"' \
+  | sudo tee /etc/udev/rules.d/61-dds140.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Then replug the device. Supported sample rates: 39 kHz, 625 kHz, 10 MHz, 80 MHz, 100 MHz. Supported voltage ranges: 50 mV/div, 100 mV/div, 200 mV/div, 500 mV/div, 1 V/div per channel. Voltage scaling is uncalibrated by default and may need adjustment per unit.
 
 ## Specifications, Features and limitations
 Please refer to the [Specifications, Features, Limitations](docs/limitations.md) page.
