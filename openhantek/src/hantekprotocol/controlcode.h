@@ -134,7 +134,11 @@ enum class ControlCode : uint8_t {
     CONTROL_SETVOLTDIV_CH1 = 0xe0,
     CONTROL_SETVOLTDIV_CH2 = 0xe1,
     CONTROL_SETTIMEDIV = 0xe2,
-    CONTROL_ACQUIIRE_HARD_DATA = 0xe3
+    CONTROL_ACQUIIRE_HARD_DATA = 0xe3,
+    // DDS140-specific control codes (vendor IN transfers)
+    CONTROL_DDS140_SAMPLERATE = 0x10,
+    CONTROL_DDS140_CH1_GAIN   = 0x22,
+    CONTROL_DDS140_CH2_GAIN   = 0x23
 };
 
 }

@@ -96,6 +96,13 @@ class USBDevice : public QObject {
     int controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length, int value,
                         int index, int attempts = HANTEK_ATTEMPTS);
 
+    /// \brief Interrupt transfer to/from the oscilloscope (for devices that use interrupt endpoints for data).
+    int interruptTransfer(unsigned char endpoint, unsigned char *data, unsigned int length,
+                          int attempts = HANTEK_ATTEMPTS);
+
+    /// \brief Reset all endpoint toggles by re-applying the current alternate interface setting.
+    int resetInterface();
+
     /// \brief Control write to the oscilloscope.
     /// \param command Buffer for the sent/recieved data.
     /// \return Number of sent bytes on success, libusb error code on error.

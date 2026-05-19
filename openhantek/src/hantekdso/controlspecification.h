@@ -90,5 +90,11 @@ struct ControlSpecification {
     bool supportsOffset = true;
     bool supportsCouplingRelays = true;
     int fixedUSBinLength = 0;
+
+    // SainSmart DDS140 specific
+    bool isDDS140Device = false;
+    std::vector<uint8_t> dds140RateCmds; ///< USB command byte per fixedSampleRates entry
+    std::vector<uint8_t> dds140GainCH1;  ///< Gain register value per gain step for CH1
+    std::vector<uint8_t> dds140GainCH2;  ///< Gain register value per gain step for CH2
 };
 }

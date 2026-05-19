@@ -134,4 +134,28 @@ ControlGetLimits::ControlGetLimits(size_t channels)
     value = (uint8_t)ControlValue::VALUE_OFFSETLIMITS;
     data()[0] = 0x01;
 }
+
+ControlDDS140GainCH1::ControlDDS140GainCH1()
+    : ControlCommand(ControlCode::CONTROL_DDS140_CH1_GAIN, 1) {
+    inDirection = true;
+    data()[0] = 0x00;
+}
+
+void ControlDDS140GainCH1::setGain(uint8_t val) { data()[0] = val; }
+
+ControlDDS140GainCH2::ControlDDS140GainCH2()
+    : ControlCommand(ControlCode::CONTROL_DDS140_CH2_GAIN, 1) {
+    inDirection = true;
+    data()[0] = 0x00;
+}
+
+void ControlDDS140GainCH2::setGain(uint8_t val) { data()[0] = val; }
+
+ControlDDS140SampleRate::ControlDDS140SampleRate()
+    : ControlCommand(ControlCode::CONTROL_DDS140_SAMPLERATE, 1) {
+    inDirection = true;
+    data()[0] = 0x00;
+}
+
+void ControlDDS140SampleRate::setRateCmd(uint8_t rateCmd) { code = rateCmd; }
 }

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <unistd.h>
 #include <vector>
 
 #include <QDebug>
@@ -16,6 +17,7 @@
 #include "hantekprotocol/bulkStructs.h"
 #include "hantekprotocol/controlStructs.h"
 #include "models/modelDSO6022.h"
+#include "models/modelDDS140.h"
 #include "usb/usbdevice.h"
 
 using namespace Hantek;
@@ -52,6 +54,22 @@ HantekDsoControl::HantekDsoControl(USBDevice *device)
     device->getModel()->applyRequirements(this);
 
     retrieveChannelLevelData();
+
+    if (specification->isDDS140Device) {
+        // Send DDS140 one-time initialization sequence
+        unsigned char resp = 0;
+        for (unsigned char cmd = 0x76; cmd <= 0x7d; ++cmd)
+            device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, cmd, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x63, &resp, 1, 4, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x75, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x22, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x23, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x24, &resp, 1, 0x18, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0xe7, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x34, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x35, &resp, 1, 0, 0, 1);
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x10, &resp, 1, 0, 0, 1);
+    }
 }
 
 HantekDsoControl::~HantekDsoControl() {
@@ -126,6 +144,8 @@ unsigned HantekDsoControl::getRecordLength() const {
 }
 
 Dso::ErrorCode HantekDsoControl::retrieveChannelLevelData() {
+    if (specification->isDDS140Device) return Dso::ErrorCode::NONE;
+
     // Get channel level data
     int errorCode = device->controlRead(&controlsettings.cmdGetLimits);
     if (errorCode < 0) {
@@ -174,6 +194,27 @@ std::pair<int, unsigned> HantekDsoControl::getCaptureState() const {
 
 std::vector<unsigned char> HantekDsoControl::getSamples(unsigned &previousSampleCount) const {
     int errorCode;
+
+    if (specification->isDDS140Device) {
+        device->resetInterface();
+        unsigned char resp = 0;
+        device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x33, &resp, 1, 0, 0, 1);
+        for (int i = 0; i < 2000; ++i) {
+            device->controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, 0x50, &resp, 1, 0, 0, 1);
+            if (resp == 0x21) break;
+            usleep(1000);
+        }
+        usleep(2000);
+        std::vector<unsigned char> raw(131072);
+        int rc = device->interruptTransfer(0x82, raw.data(), 131072, 3);
+        if (rc < 0) {
+            qWarning() << "DDS140 data read failed: " << libUsbErrorString(rc);
+            emit communicationError();
+            return std::vector<unsigned char>();
+        }
+        return std::vector<unsigned char>(raw.begin() + 8, raw.end());
+    }
+
     if (!specification->useControlNoBulk) {
         // Request data
         errorCode = bulkCommand(getCommand(BulkCode::GETDATA), 1);
@@ -297,6 +338,10 @@ void HantekDsoControl::convertRawDataToSamples(const std::vector<unsigned char> 
 
                     result.data[channel][realPosition] = ((double)(low + high) / limit - offset) * gainStep;
                 }
+            } else if (specification->isDDS140Device) {
+                // DDS140: interleaved [CH0, CH1, CH0, CH1...], unsigned 8-bit, centered at 0x80
+                bufferPosition += channel;
+                shiftDataBuf = 0x80;
             } else if (device->getModel()->ID == ModelDSO6022BE::ID) {
                 // if device is 6022BE, drop heading & trailing samples
                 const unsigned DROP_DSO6022_HEAD = 0x410;
@@ -641,8 +686,13 @@ Dso::ErrorCode HantekDsoControl::setSamplerate(double samplerate) {
         unsigned sampleId;
         for (sampleId = 0; sampleId < specification->fixedSampleRates.size() - 1; ++sampleId)
             if (specification->fixedSampleRates[sampleId].samplerate == samplerate) break;
-        modifyCommand<ControlSetTimeDIV>(ControlCode::CONTROL_SETTIMEDIV)
-            ->setDiv(specification->fixedSampleRates[sampleId].id);
+        if (specification->isDDS140Device) {
+            modifyCommand<ControlDDS140SampleRate>(ControlCode::CONTROL_DDS140_SAMPLERATE)
+                ->setRateCmd(specification->dds140RateCmds[sampleId]);
+        } else {
+            modifyCommand<ControlSetTimeDIV>(ControlCode::CONTROL_SETTIMEDIV)
+                ->setDiv(specification->fixedSampleRates[sampleId].id);
+        }
         controlsettings.samplerate.current = samplerate;
 
         // Check for Roll mode
@@ -699,8 +749,13 @@ Dso::ErrorCode HantekDsoControl::setRecordTime(double duration) {
             if (specification->fixedSampleRates[id].samplerate * duration < sampleCount) sampleId = id;
         }
         // Usable sample value
-        modifyCommand<ControlSetTimeDIV>(ControlCode::CONTROL_SETTIMEDIV)
-            ->setDiv(specification->fixedSampleRates[sampleId].id);
+        if (specification->isDDS140Device) {
+            modifyCommand<ControlDDS140SampleRate>(ControlCode::CONTROL_DDS140_SAMPLERATE)
+                ->setRateCmd(specification->dds140RateCmds[sampleId]);
+        } else {
+            modifyCommand<ControlSetTimeDIV>(ControlCode::CONTROL_SETTIMEDIV)
+                ->setDiv(specification->fixedSampleRates[sampleId].id);
+        }
         controlsettings.samplerate.current = specification->fixedSampleRates[sampleId].samplerate;
 
         emit samplerateChanged(controlsettings.samplerate.current);
@@ -789,7 +844,16 @@ Dso::ErrorCode HantekDsoControl::setGain(ChannelID channel, double gain) {
     for (gainID = 0; gainID < specification->gain.size() - 1; ++gainID)
         if (specification->gain[gainID].gainSteps >= gain) break;
 
-    if (specification->useControlNoBulk) {
+    if (specification->isDDS140Device) {
+        if (channel == 0) {
+            modifyCommand<ControlDDS140GainCH1>(ControlCode::CONTROL_DDS140_CH1_GAIN)
+                ->setGain(specification->dds140GainCH1[gainID]);
+        } else if (channel == 1) {
+            modifyCommand<ControlDDS140GainCH2>(ControlCode::CONTROL_DDS140_CH2_GAIN)
+                ->setGain(specification->dds140GainCH2[gainID]);
+        } else
+            qDebug("%s: Unsupported channel: %i\n", __func__, channel);
+    } else if (specification->useControlNoBulk) {
         if (channel == 0) {
             modifyCommand<ControlSetVoltDIV_CH1>(ControlCode::CONTROL_SETVOLTDIV_CH1)
                 ->setDiv(specification->gain[gainID].gainIndex);
@@ -1089,7 +1153,10 @@ void HantekDsoControl::run() {
                                .arg(QString::number(controlCommand->code, 16),
                                     hexDump(controlCommand->data(), controlCommand->size())));
 
-            errorCode = device->controlWrite(controlCommand);
+            if (controlCommand->inDirection)
+                errorCode = device->controlRead(controlCommand);
+            else
+                errorCode = device->controlWrite(controlCommand);
             if (errorCode < 0) {
                 qWarning("Sending control command %2x failed: %s", (uint8_t)controlCommand->code,
                          libUsbErrorString(errorCode).toLocal8Bit().data());

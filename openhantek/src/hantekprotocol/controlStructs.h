@@ -131,4 +131,20 @@ struct ControlAcquireHardData : public ControlCommand {
 struct ControlGetLimits : public ControlCommand {
     ControlGetLimits(size_t channels);
 };
+
+// SainSmart DDS140 — vendor IN control transfers
+struct ControlDDS140GainCH1 : public ControlCommand {
+    ControlDDS140GainCH1();
+    void setGain(uint8_t val);
+};
+
+struct ControlDDS140GainCH2 : public ControlCommand {
+    ControlDDS140GainCH2();
+    void setGain(uint8_t val);
+};
+
+struct ControlDDS140SampleRate : public ControlCommand {
+    ControlDDS140SampleRate();
+    void setRateCmd(uint8_t rateCmd);
+};
 }

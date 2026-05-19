@@ -189,6 +189,24 @@ int USBDevice::bulkReadMulti(unsigned char *data, unsigned length, int attempts)
         return errorCode;
 }
 
+int USBDevice::interruptTransfer(unsigned char endpoint, unsigned char *data, unsigned int length, int attempts) {
+    if (!this->handle) return LIBUSB_ERROR_NO_DEVICE;
+
+    int errorCode = LIBUSB_ERROR_TIMEOUT;
+    int transferred = 0;
+    for (int attempt = 0; (attempt < attempts || attempts == -1) && errorCode == LIBUSB_ERROR_TIMEOUT; ++attempt)
+        errorCode = libusb_interrupt_transfer(this->handle, endpoint, data, (int)length, &transferred,
+                                              HANTEK_TIMEOUT_MULTI);
+
+    if (errorCode == LIBUSB_ERROR_NO_DEVICE) disconnectFromDevice();
+    return errorCode ? errorCode : transferred;
+}
+
+int USBDevice::resetInterface() {
+    if (!this->handle) return LIBUSB_ERROR_NO_DEVICE;
+    return libusb_set_interface_alt_setting(this->handle, interface, 0);
+}
+
 int USBDevice::controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length,
                                int value, int index, int attempts) {
     if (!this->handle) return LIBUSB_ERROR_NO_DEVICE;
