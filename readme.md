@@ -1,84 +1,82 @@
-# OpenHantek [![Build Status](https://travis-ci.org/OpenHantek/openhantek.svg?branch=master)](https://travis-ci.org/OpenHantek/openhantek) [![Build status](https://ci.appveyor.com/api/projects/status/github/openhantek/openhantek?branch=master&svg=true)](https://ci.appveyor.com/project/openhantek/openhantek/branch/master) [![Stability: Unsupported](https://masterminds.github.io/stability/unsupported.svg)](https://masterminds.github.io/stability/unsupported.html)
+# OpenHantek [![Build Linux](https://github.com/Pejosonic/openhantek/actions/workflows/build-linux.yml/badge.svg)](https://github.com/Pejosonic/openhantek/actions/workflows/build-linux.yml)
 
-OpenHantek is a free software for Hantek and compatible (Voltcraft/Darkwire/Protek/Acetech) USB digital signal oscilloscopes, and the SainSmart DDS140.
+OpenHantek is a free, open-source oscilloscope application for Hantek and compatible USB devices. This fork adds native support for the **SainSmart DDS140** (and DDS120), reverse-engineered from USB protocol captures and cross-referenced with the OpenBuudai project.
 
 <table><tr>
     <td> <img alt="Image of main window on linux" width="100%" src="docs/images/screenshot_mainwindow.png"> </td>
     <td> <img alt="Image of main window on Windows" width="100%" src="docs/images/screenshot_mainwindow_win.png"> </td>
 </tr></table>
 
-* Supported operating systems: Linux, MacOSX, Windows¹, Android
-* Supported devices: DSO2xxx Series, DSO52xx Series, 6022BE/BL, SainSmart DDS140
+* **Supported OS:** Linux (primary), MacOSX, Windows
+* **Supported devices:** DSO2xxx Series, DSO52xx Series, 6022BE/BL, **SainSmart DDS140**
 
-## Features
+## Download
 
-* Digital phosphor effect to notice even short spikes
-* Voltage and Spectrum view for all device supported chanels
-* Math channel with these modes: Ch1+Ch2, Ch1-Ch2
-* Freely configurable colors
-* Export to CSV, JPG, PNG or print the graphs
-* Supports hardware and software triggered devices
-* A zoom view with a freely selectable range
-* All settings can be saved to a configuration file and loaded again
-* Multiple instances with a different device each can be started
-* The dock views on the main window can be customized by dragging them around and stacking them.
-  This allows a minimum window size of 640*480 for old workstation computers.
+A Linux x86_64 binary is built automatically on every commit and published as a pre-release:
 
-## Install prebuilt binary
-Navigate to the [Releases](https://github.com/OpenHantek/openhantek/releases) page.
-* [Download Windows build](https://ci.appveyor.com/project/openhantek/openhantek/branch/master/artifacts)
+**[⬇ Download latest Linux build](https://github.com/Pejosonic/openhantek/releases/tag/latest)**
 
-## Building OpenHantek from source
-You need the following software, to build OpenHantek from source:
-* [CMake 3.5+](https://cmake.org/download/)
-* [Qt 5.4+](https://www1.qt.io/download-open-source/)
-* [FFTW 3+ (prebuild files will be downloaded on windows)](http://www.fftw.org/)
-* libusb 1.x (prebuild files will be used on windows)
-* A compiler that supports C++11
+## SainSmart DDS140 support
 
-We have build instructions available for [Linux](docs/build.md#linux), [Apple MacOSX](docs/build.md#apple) and [Microsoft Windows](docs/build.md#windows).
+The DDS140 (USB VID `0x8312` / PID `0x8312`) works out of the box — no firmware upload is needed. On Linux, grant non-root USB access with a udev rule:
 
-## Run OpenHantek
-You need an OpenGL 3.2+ or OpenGL ES 2.0+ capable graphics hardware for OpenHantek.
-OpenGL is prefered, if available. Overwrite this behaviour by starting OpenHantek
-from the command line like this: `OpenHantek --useGLES`.
-
-USB access for the device is required:
-* As seen on the [Microsoft Windows build instructions](docs/build.md#windows) page, you need a
-special driver for Windows systems.
-* On Linux, you need to copy the file `firmware/60-hantek.rules` to `/lib/udev/rules.d/` and replug your device.
-
-### SainSmart DDS140
-
-The DDS140 (USB VID `0x8312` / PID `0x8312`) is supported natively — no firmware upload is required as the device firmware is pre-loaded. On Linux, add a udev rule to grant non-root access:
-
-```
+```bash
 echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="8312", ATTR{idProduct}=="8312", MODE="0666"' \
   | sudo tee /etc/udev/rules.d/61-dds140.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-Then replug the device. Supported sample rates: 39 kHz, 625 kHz, 10 MHz, 80 MHz, 100 MHz. Supported voltage ranges: 50 mV/div, 100 mV/div, 200 mV/div, 500 mV/div, 1 V/div per channel. Voltage scaling is uncalibrated by default and may need adjustment per unit.
+Replug the device, then launch OpenHantek — it will be detected automatically.
 
-## Specifications, Features and limitations
-Please refer to the [Specifications, Features, Limitations](docs/limitations.md) page.
+| Feature | Details |
+|---|---|
+| Channels | 2 |
+| Sample rates | 39 kHz, 625 kHz, 10 MHz, 80 MHz, 100 MHz |
+| Voltage ranges | 50 mV/div · 100 mV/div · 200 mV/div · 500 mV/div · 1 V/div (per channel) |
+| Trigger | Software (rising/falling edge) |
+| Coupling | DC only |
+| Voltage calibration | Uncalibrated — see [limitations](docs/limitations.md#sainsmartdds140) |
 
-## Contribute
-We welcome any reported Github Issue if you have a problem with this software. Send us a pull request for enhancements and fixes. Some random notes:
-   - Read [how to properly contribute to open source projects on GitHub][10].
-   - Create a separate branch other than *master* for your changes. It is not possible to directly commit to master on this repository.
-   - Write [good commit messages][11].
-   - Use the same [coding style and spacing][13]
-     (install clang-format. Use make target: `make format` or execute directly from the openhantek directory: `clang-format -style=file src/*`).
-   - Open a [pull request][12] with a clear title and description.
-   - Read [Add a new device](docs/adddevice.md) if you want to know how to add a device.
-   - We recommend QtCreator as IDE on all platforms. It comes with CMake support, a decent compiler, and Qt out of the box.
+## Features
 
-[10]: http://gun.io/blog/how-to-github-fork-branch-and-pull-request
-[11]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
-[12]: https://help.github.com/articles/using-pull-requests
-[13]: http://llvm.org/docs/CodingStandards.html
+* Digital phosphor effect to notice even short spikes
+* Voltage and spectrum view for all supported channels
+* Math channel (Ch1+Ch2, Ch1−Ch2)
+* Freely configurable colors
+* Export to CSV, JPG, PNG or print
+* Hardware and software trigger support
+* Zoom view with freely selectable range
+* Settings saved to and loaded from a configuration file
+* Multiple instances with a different device each
+
+## Building from source
+
+Dependencies:
+
+* [CMake 3.5+](https://cmake.org/download/)
+* [Qt 5.4+](https://www1.qt.io/download-open-source/)
+* [FFTW 3+](http://www.fftw.org/)
+* libusb 1.x
+* C++11 compiler
+
+Build instructions: [Linux](docs/build.md#linux) · [macOS](docs/build.md#apple) · [Windows](docs/build.md#windows)
+
+## Running OpenHantek
+
+Requires OpenGL 3.2+ or OpenGL ES 2.0+. To force OpenGL ES:
+
+```
+OpenHantek --useGLES
+```
+
+For Hantek devices on Linux, copy `firmware/60-hantek.rules` to `/lib/udev/rules.d/` and replug the device.
+
+## Specifications and limitations
+
+See the [Specifications, Features, Limitations](docs/limitations.md) page.
 
 ## Other DSO open source software
+
 * [SigRok](http://www.sigrok.org)
+* [OpenBuudai](https://github.com/OpenHantek/OpenBuudai) — inspiration for DDS140 support
 * [Software for the Hantek 6022BE/BL only](http://pididu.com/wordpress/basicscope/)
